@@ -15,7 +15,7 @@ func NewMgoConfigMngr(db *mgo.Database) *MgoConfigMngr {
 }
 
 func (c *MgoConfigMngr) Set(key string, val string) error {
-	panic("not implemented")
+	return c.SetMulti([]*model.ConfigObj{&model.ConfigObj{&key, &val}})
 }
 
 func (c *MgoConfigMngr) SetMulti(objs []*model.ConfigObj) error {
@@ -31,7 +31,7 @@ func (c *MgoConfigMngr) SetMulti(objs []*model.ConfigObj) error {
 }
 
 func (c *MgoConfigMngr) UnSet(key string) error {
-	panic("not implemented")
+	return c.UnSetMulti([]string{key})
 }
 
 func (c *MgoConfigMngr) UnSetMulti(key []string) error {
@@ -40,7 +40,12 @@ func (c *MgoConfigMngr) UnSetMulti(key []string) error {
 }
 
 func (c *MgoConfigMngr) Get(key string) (string, error) {
-	panic("not implemented")
+	objs, err := c.GetMulti([]string{key})
+	if len(objs) == 1 {
+		return *objs[0].Val, nil
+	}
+
+	return "", err
 }
 
 func (c *MgoConfigMngr) GetMulti(key []string) ([]*model.ConfigObj, error) {
