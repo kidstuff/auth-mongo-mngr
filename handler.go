@@ -18,6 +18,8 @@ func Initial(db *mgo.Database) {
 			},
 		}
 	}
+
+	auth.EqualIdChecker = EqualIdChecker
 }
 
 type mongoMngrHandler struct {

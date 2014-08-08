@@ -29,6 +29,15 @@ func getId(id interface{}) (bson.ObjectId, error) {
 	return bson.ObjectIdHex(sid), nil
 }
 
+func EqualIdChecker(id interface{}, sid string) bool {
+	oid, err := getId(id)
+	if err != nil {
+		return false
+	}
+
+	return oid.Hex() == sid
+}
+
 // EnsureIndex builds the index for users data and login state collection.
 func EnsureIndex(db *mgo.Database) error {
 	groupColl := db.C("mgoauth_group")
