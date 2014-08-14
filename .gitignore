@@ -2,6 +2,8 @@
 *.o
 *.a
 *.so
+example/example
+example/setup/setup
 
 # Folders
 _obj
