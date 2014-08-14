@@ -67,6 +67,16 @@ func (m *MgoGroupManager) Find(id interface{}) (*model.Group, error) {
 	return group, nil
 }
 
+func (m *MgoGroupManager) FindByName(name string) (*model.Group, error) {
+	group := &model.Group{}
+	err := m.GroupColl.Find(bson.M{"Name": name}).One(group)
+	if err != nil {
+		return nil, err
+	}
+
+	return group, nil
+}
+
 func (m *MgoGroupManager) FindSome(id ...interface{}) (
 	[]*model.Group, error) {
 	aid := make([]bson.ObjectId, 0, len(id))

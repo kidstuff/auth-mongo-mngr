@@ -7,7 +7,7 @@ import (
 	"github.com/kidstuff/auth/model"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	"log"
+	"strings"
 	"time"
 )
 
@@ -65,7 +65,8 @@ func (m *MgoUserManager) newUser(email, pwd string, app bool) (*model.User, erro
 	u.Approved = &app
 	if !app {
 		u.ConfirmCodes = map[string]string{
-			"activate": base64.URLEncoding.EncodeToString(securecookie.GenerateRandomKey(64)),
+			"activate": strings.Trim(base64.URLEncoding.
+				EncodeToString(securecookie.GenerateRandomKey(64)), "="),
 		}
 	}
 
@@ -291,33 +292,4 @@ func (m *MgoUserManager) Login(id interface{}, stay time.Duration) (string, erro
 
 func (m *MgoUserManager) Logout(token string) error {
 	return m.LoginColl.RemoveId(token)
-}
-
-func (m *MgoUserManager) Can(user *model.User, do string) bool {
-	for _, pri := range user.Privilege {
-		if do == pri {
-			return true
-		}
-	}
-
-	aid := make([]interface{}, 0, len(user.BriefGroups))
-	for _, v := range user.BriefGroups {
-		aid = append(aid, v.Id)
-	}
-
-	groups, err := m.GroupMngr.FindSome(aid...)
-	if err != nil {
-		log.Println("mgoauth: cannot find user group to determine privilege", err)
-		return false
-	}
-
-	for _, v := range groups {
-		for _, pri := range v.Privilege {
-			if do == pri {
-				return true
-			}
-		}
-	}
-
-	return false
 }

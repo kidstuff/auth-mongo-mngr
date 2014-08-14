@@ -29,6 +29,23 @@ func getId(id interface{}) (bson.ObjectId, error) {
 	return bson.ObjectIdHex(sid), nil
 }
 
+func _IdToString(id interface{}) (string, error) {
+	oid, err := getId(id)
+	if err != nil {
+		return "", err
+	}
+
+	return oid.Hex(), nil
+}
+
+func _IdFromString(s string) (interface{}, error) {
+	if bson.IsObjectIdHex(s) {
+		return bson.ObjectIdHex(s), nil
+	}
+
+	return "", nil
+}
+
 func EqualIdChecker(id interface{}, sid string) bool {
 	oid, err := getId(id)
 	if err != nil {
@@ -53,11 +70,6 @@ func EnsureIndex(db *mgo.Database) error {
 	}
 
 	err = userColl.EnsureIndexKey("LastActivity")
-	if err != nil {
-		return err
-	}
-
-	err = userColl.EnsureIndexKey("Privilege")
 	if err != nil {
 		return err
 	}

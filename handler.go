@@ -7,11 +7,11 @@ import (
 )
 
 func Initial(db *mgo.Database) {
-	auth.HandlerRegister = func(fn auth.HandleFunc, owner bool, groups, pri []string) http.Handler {
-		return &mongoMngrHandler{
+	auth.HANDLER_REGISTER = func(fn auth.HandleFunc, owner bool, groups, pri []string) http.Handler {
+		return mongoMngrHandler{
 			db: db,
-			BasicMngrHandler: auth.BasicMngrHandler{
-				Fn:             fn,
+			Fn: fn,
+			Condition: auth.Condition{
 				RequiredGroups: groups,
 				RequiredPri:    pri,
 				Owner:          owner,
@@ -19,20 +19,23 @@ func Initial(db *mgo.Database) {
 		}
 	}
 
-	auth.EqualIdChecker = EqualIdChecker
+	auth.ID_FROM_STRING = _IdFromString
+	auth.ID_TO_STRING = _IdToString
 }
 
 type mongoMngrHandler struct {
 	db *mgo.Database
-	auth.BasicMngrHandler
+	Fn auth.HandleFunc
+	auth.Condition
+	auth.AuthContext
 }
 
-func (h *mongoMngrHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+func (h mongoMngrHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	cloneDB := h.db.Session.Clone().DB(h.db.Name)
 	defer cloneDB.Session.Close()
 
 	h.AuthContext.Groups = NewMgoGroupManager(cloneDB)
 	h.AuthContext.Users = NewMgoUserManager(cloneDB, h.AuthContext.Groups)
 	h.AuthContext.Settings = NewMgoConfigMngr(cloneDB)
-	h.BasicMngrHandler.ServeHTTP(rw, req)
+	auth.BasicMngrHandler(&h.AuthContext, rw, req, &h.Condition, h.Fn)
 }
