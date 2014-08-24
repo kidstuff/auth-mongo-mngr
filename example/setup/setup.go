@@ -40,16 +40,16 @@ func main() {
 
 	conf := mgoauth.NewMgoConfigMngr(db)
 	settings := map[string]string{
-		"auth.full_path":              "http://localhost:8080/auth",
-		"auth.activate_page":          "http://localhost:8082/#!/user/%s/active?code=%s",
-		"auth.approve_new_user":       "false",
-		"auth.email_from":             "nvcnvn1@gmail.com",
-		"auth.send_activate_email":    "true",
-		"auth.activate_email_subject": "Active your account",
-		"auth.activate_email_message": "Hi!\nPlease active your account by cliking here:\n%s",
-		"auth.send_welcome_email":     "true",
-		"auth.welcome_email_subject":  "Welcome!",
-		"auth.welcome_email_message":  "Hi!\nWelcome you to join our community :)",
+		"auth_full_path":              "http://localhost:8080/auth",
+		"auth_activate_page":          "http://localhost:8082/#!/user/%s/active?code=%s",
+		"auth_approve_new_user":       "false",
+		"auth_email_from":             "nvcnvn1@gmail.com",
+		"auth_send_activate_email":    "true",
+		"auth_activate_email_subject": "Active your account",
+		"auth_activate_email_message": "Hi!\nPlease active your account by cliking here:\n%s",
+		"auth_send_welcome_email":     "true",
+		"auth_welcome_email_subject":  "Welcome!",
+		"auth_welcome_email_message":  "Hi!\nWelcome you to join our community :)",
 	}
 	err = conf.SetMulti(settings)
 	if err != nil {
