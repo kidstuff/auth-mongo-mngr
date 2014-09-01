@@ -76,7 +76,10 @@ func main() {
 		u = &model.User{}
 		u.Email = &email
 		u.ChangePassword("zaq123edc")
-		u.BriefGroups = []model.BriefGroup{model.BriefGroup{g.Id, g.Name}}
+		g2 := model.Group{}
+		g2.Id = g.Id
+		g2.Name = g.Name
+		u.Groups = []model.Group{g2}
 		t := true
 		u.Approved = &t
 		u.Privilege = g.Privilege

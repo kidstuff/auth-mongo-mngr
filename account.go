@@ -119,8 +119,8 @@ func (m *MgoUserManager) UpdateDetail(u *model.User) error {
 	if u.ConfirmCodes != nil {
 		changes["ConfirmCodes"] = u.ConfirmCodes
 	}
-	if u.BriefGroups != nil {
-		changes["BriefGroups"] = u.BriefGroups
+	if u.Groups != nil {
+		changes["Groups"] = u.Groups
 	}
 	if u.Approved != nil {
 		changes["Approved"] = *u.Approved
