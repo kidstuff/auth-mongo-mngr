@@ -52,8 +52,8 @@ func (m *MgoUserManager) newUser(email, pwd string, app bool) (*model.User, erro
 	u.Email = &email
 	now := time.Now()
 	u.LastActivity = &now
-	u.Info = &model.UserInfo{}
-	u.Info.JoinDay = u.LastActivity
+	u.Profile = &model.Profile{}
+	u.Profile.JoinDay = u.LastActivity
 
 	p, err := model.HashPwd(pwd)
 	if err != nil {
@@ -125,8 +125,8 @@ func (m *MgoUserManager) UpdateDetail(u *model.User) error {
 	if u.Approved != nil {
 		changes["Approved"] = *u.Approved
 	}
-	if u.Info != nil {
-		changes["Info"] = *u.Info
+	if u.Profile != nil {
+		changes["Profile"] = *u.Profile
 	}
 
 	return m.UserColl.UpdateId(oid, bson.M{"$set": changes})
