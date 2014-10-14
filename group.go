@@ -23,12 +23,14 @@ func NewMgoGroupManager(db *mgo.Database) *MgoGroupManager {
 	return mngr
 }
 
-func (m *MgoGroupManager) AddDetail(g *model.Group) (*model.Group, error) {
+func (m *MgoGroupManager) AddDetail(name string, pri []string, info *model.GroupInfo) (*model.Group, error) {
 	group := &Group{}
 	group.Id = bson.NewObjectId()
 	sid := group.Id.Hex()
-	group.Group = *g
 	group.Group.Id = &sid
+	group.Name = &name
+	group.Privilege = pri
+	group.Info = info
 	if group.Name == nil {
 		return nil, model.ErrInvalidEmail
 	}
@@ -44,18 +46,18 @@ func (m *MgoGroupManager) AddDetail(g *model.Group) (*model.Group, error) {
 	return &group.Group, nil
 }
 
-func (m *MgoGroupManager) UpdateDetail(group *model.Group) error {
-	oid, err := getId(*group.Id)
+func (m *MgoGroupManager) UpdateDetail(id string, pri []string, info *model.GroupInfo) error {
+	oid, err := getId(id)
 	if err != nil {
 		return err
 	}
 
 	change := bson.M{}
-	if group.Info != nil {
-		change["Info"] = *group.Info
+	if info != nil {
+		change["Info"] = *info
 	}
-	if group.Privilege != nil {
-		change["Privilege"] = group.Privilege
+	if pri != nil {
+		change["Privilege"] = pri
 	}
 
 	return m.GroupColl.UpdateId(oid, bson.M{"$set": change})
