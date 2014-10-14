@@ -17,14 +17,8 @@ var (
 )
 
 type User struct {
-	Id          bson.ObjectId `bson:"_id"`
-	*model.User `bson:",inline"`
-}
-
-func (u *User) modelDotUser() *model.User {
-	sid := u.Id.Hex()
-	u.User.Id = &sid
-	return u.User
+	Id         bson.ObjectId `bson:"_id"`
+	model.User `bson:",inline"`
 }
 
 type MgoUserManager struct {
@@ -75,8 +69,9 @@ func (m *MgoUserManager) newUser(email, pwd string, app bool) (*User, error) {
 	}
 
 	u := &User{}
-	u.User = &model.User{}
 	u.Id = bson.NewObjectId()
+	sid := u.Id.Hex()
+	u.User.Id = &sid
 	u.Email = &email
 	now := time.Now()
 	u.LastActivity = &now
@@ -125,7 +120,7 @@ func (m *MgoUserManager) Add(email, pwd string, app bool) (*model.User,
 		return nil, err
 	}
 
-	return u.modelDotUser(), nil
+	return &u.User, nil
 }
 
 func (m *MgoUserManager) AddDetail(email, pwd string, app bool, pri []string,
@@ -144,7 +139,7 @@ func (m *MgoUserManager) AddDetail(email, pwd string, app bool, pri []string,
 		return nil, err
 	}
 
-	return u.modelDotUser(), nil
+	return &u.User, nil
 }
 
 func (m *MgoUserManager) UpdateDetail(id string, pwd *string, app *bool, pri []string,
@@ -192,13 +187,13 @@ func (m *MgoUserManager) Find(id string) (*model.User, error) {
 		return nil, err
 	}
 
-	user := &User{}
+	user := &model.User{}
 	err = m.UserColl.FindId(oid).One(user)
 	if err != nil {
 		return nil, err
 	}
 
-	return user.modelDotUser(), nil
+	return user, nil
 }
 
 func (m *MgoUserManager) FindByEmail(email string) (*model.User, error) {
@@ -206,13 +201,13 @@ func (m *MgoUserManager) FindByEmail(email string) (*model.User, error) {
 		return nil, model.ErrInvalidEmail
 	}
 
-	user := &User{}
+	user := &model.User{}
 	err := m.UserColl.Find(bson.M{"Email": email}).One(user)
 	if err != nil {
 		return nil, err
 	}
 
-	return user.modelDotUser(), nil
+	return user, nil
 }
 
 func (m *MgoUserManager) findAll(limit int, offsetId string, fields []string,
@@ -245,22 +240,17 @@ func (m *MgoUserManager) findAll(limit int, offsetId string, fields []string,
 		query.Select(selector)
 	}
 
-	var accounts []User
+	var users []*model.User
 	if limit > 0 {
 		query.Limit(limit)
-		accounts = make([]User, 0, limit)
+		users = make([]*model.User, 0, limit)
 	} else {
-		accounts = []User{}
+		users = []*model.User{}
 	}
 
-	err := query.All(&accounts)
+	err := query.All(&users)
 	if err != nil {
 		return nil, err
-	}
-
-	users := make([]*model.User, 0, len(accounts))
-	for _, u := range accounts {
-		users = append(users, u.modelDotUser())
 	}
 
 	return users, nil
@@ -279,7 +269,7 @@ func (m *MgoUserManager) FindAllOnline(limit int, offsetId string, fields []stri
 }
 
 func (m *MgoUserManager) updateLastActivity(id bson.ObjectId) (*model.User, error) {
-	user := &User{}
+	user := &model.User{}
 	err := m.UserColl.FindId(id).One(user)
 	if err != nil {
 		return nil, err
@@ -295,7 +285,7 @@ func (m *MgoUserManager) updateLastActivity(id bson.ObjectId) (*model.User, erro
 		return nil, err
 	}
 
-	return user.modelDotUser(), nil
+	return user, nil
 }
 
 func (m *MgoUserManager) Get(token string) (*model.User, error) {

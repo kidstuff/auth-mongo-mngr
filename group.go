@@ -12,8 +12,8 @@ type MgoGroupManager struct {
 }
 
 type Group struct {
-	Id           bson.ObjectId `bson:"_id"`
-	*model.Group `bson:",inline"`
+	Id          bson.ObjectId `bson:"_id"`
+	model.Group `bson:",inline"`
 }
 
 func NewMgoGroupManager(db *mgo.Database) *MgoGroupManager {
@@ -27,7 +27,7 @@ func (m *MgoGroupManager) AddDetail(g *model.Group) (*model.Group, error) {
 	group := &Group{}
 	group.Id = bson.NewObjectId()
 	sid := group.Id.Hex()
-	group.Group = g
+	group.Group = *g
 	group.Group.Id = &sid
 	if group.Name == nil {
 		return nil, model.ErrInvalidEmail
@@ -41,7 +41,7 @@ func (m *MgoGroupManager) AddDetail(g *model.Group) (*model.Group, error) {
 		return nil, err
 	}
 
-	return group.Group, nil
+	return &group.Group, nil
 }
 
 func (m *MgoGroupManager) UpdateDetail(group *model.Group) error {
