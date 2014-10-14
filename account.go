@@ -1,6 +1,7 @@
 package mgoauth
 
 import (
+	"code.google.com/p/go.crypto/bcrypt"
 	"encoding/base64"
 	"errors"
 	"github.com/gorilla/securecookie"
@@ -14,6 +15,17 @@ import (
 var (
 	ErrNoResult = errors.New("mgoauth: no result")
 )
+
+type User struct {
+	Id          bson.ObjectId `bson:"_id"`
+	*model.User `bson:",inline"`
+}
+
+func (u *User) modelDotUser() *model.User {
+	sid := u.Id.Hex()
+	u.User.Id = &sid
+	return u.User
+}
 
 type MgoUserManager struct {
 	MinimumOnlineThreshold time.Duration
@@ -38,7 +50,22 @@ func NewMgoUserManager(db *mgo.Database, groupMngr model.GroupManager) *MgoUserM
 	return mngr
 }
 
-func (m *MgoUserManager) newUser(email, pwd string, app bool) (*model.User, error) {
+func hashPwd(pwd string) (model.Password, error) {
+	p := model.Password{}
+	p.InitAt = time.Now()
+	p.Salt = securecookie.GenerateRandomKey(32)
+
+	pwdBytes := []byte(pwd)
+	tmp := make([]byte, len(pwdBytes)+len(p.Salt))
+	copy(tmp, pwdBytes)
+	tmp = append(tmp, p.Salt...)
+	b, err := bcrypt.GenerateFromPassword(tmp, bcrypt.DefaultCost)
+	p.Hashed = b
+
+	return p, err
+}
+
+func (m *MgoUserManager) newUser(email, pwd string, app bool) (*User, error) {
 	if !m.Formater.EmailValidate(email) {
 		return nil, model.ErrInvalidEmail
 	}
@@ -47,7 +74,8 @@ func (m *MgoUserManager) newUser(email, pwd string, app bool) (*model.User, erro
 		return nil, model.ErrInvalidPassword
 	}
 
-	u := &model.User{}
+	u := &User{}
+	u.User = &model.User{}
 	u.Id = bson.NewObjectId()
 	u.Email = &email
 	now := time.Now()
@@ -55,7 +83,7 @@ func (m *MgoUserManager) newUser(email, pwd string, app bool) (*model.User, erro
 	u.Profile = &model.Profile{}
 	u.Profile.JoinDay = u.LastActivity
 
-	p, err := model.HashPwd(pwd)
+	p, err := hashPwd(pwd)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +101,7 @@ func (m *MgoUserManager) newUser(email, pwd string, app bool) (*model.User, erro
 	return u, nil
 }
 
-func (m *MgoUserManager) insertUser(u *model.User) error {
+func (m *MgoUserManager) insertUser(u *User) error {
 	err := m.UserColl.Insert(u)
 	if err != nil {
 		if mgo.IsDup(err) {
@@ -97,42 +125,59 @@ func (m *MgoUserManager) Add(email, pwd string, app bool) (*model.User,
 		return nil, err
 	}
 
-	return u, nil
+	return u.modelDotUser(), nil
 }
 
-func (m *MgoUserManager) AddDetail(u *model.User) (*model.User, error) {
-	u.Id = bson.NewObjectId()
-	err := m.insertUser(u)
-	return u, err
-}
-
-func (m *MgoUserManager) UpdateDetail(u *model.User) error {
-	oid, err := getId(u.Id)
+func (m *MgoUserManager) AddDetail(email, pwd string, app bool, pri []string,
+	code map[string]string, profile *model.Profile, groups []model.Group) (*model.User, error) {
+	u, err := m.newUser(email, pwd, app)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	u.Privilege = pri
+	u.ConfirmCodes = code
+	u.Profile = profile
+	u.Groups = groups
+
+	err = m.insertUser(u)
+	if err != nil {
+		return nil, err
+	}
+
+	return u.modelDotUser(), nil
+}
+
+func (m *MgoUserManager) UpdateDetail(id string, pwd *string, app *bool, pri []string,
+	code map[string]string, profile *model.Profile, groups []model.Group) error {
+	if !bson.IsObjectIdHex(id) {
+		return model.ErrInvalidId
+	}
+	oid := bson.ObjectIdHex(id)
 
 	changes := make(bson.M)
-	if u.Privilege != nil {
-		changes["Privilege"] = u.Privilege
+	if pri != nil {
+		changes["Privilege"] = pri
 	}
-	if u.ConfirmCodes != nil {
-		changes["ConfirmCodes"] = u.ConfirmCodes
+	if code != nil {
+		changes["ConfirmCodes"] = code
 	}
-	if u.Groups != nil {
-		changes["Groups"] = u.Groups
+	if groups != nil {
+		changes["Groups"] = groups
 	}
-	if u.Approved != nil {
-		changes["Approved"] = *u.Approved
+	if app != nil {
+		changes["Approved"] = *app
 	}
-	if u.Profile != nil {
-		changes["Profile"] = *u.Profile
+	if profile != nil {
+		changes["Profile"] = profile
+	}
+	if pwd != nil {
+		changes["Pwd"] = *pwd
 	}
 
 	return m.UserColl.UpdateId(oid, bson.M{"$set": changes})
 }
 
-func (m *MgoUserManager) Delete(id interface{}) error {
+func (m *MgoUserManager) Delete(id string) error {
 	oid, err := getId(id)
 	if err != nil {
 		return err
@@ -141,19 +186,19 @@ func (m *MgoUserManager) Delete(id interface{}) error {
 	return m.UserColl.RemoveId(oid)
 }
 
-func (m *MgoUserManager) Find(id interface{}) (*model.User, error) {
+func (m *MgoUserManager) Find(id string) (*model.User, error) {
 	oid, err := getId(id)
 	if err != nil {
 		return nil, err
 	}
 
-	u := &model.User{}
-	err = m.UserColl.FindId(oid).One(u)
+	user := &User{}
+	err = m.UserColl.FindId(oid).One(user)
 	if err != nil {
 		return nil, err
 	}
 
-	return u, nil
+	return user.modelDotUser(), nil
 }
 
 func (m *MgoUserManager) FindByEmail(email string) (*model.User, error) {
@@ -161,16 +206,16 @@ func (m *MgoUserManager) FindByEmail(email string) (*model.User, error) {
 		return nil, model.ErrInvalidEmail
 	}
 
-	u := &model.User{}
-	err := m.UserColl.Find(bson.M{"Email": email}).One(u)
+	user := &User{}
+	err := m.UserColl.Find(bson.M{"Email": email}).One(user)
 	if err != nil {
 		return nil, err
 	}
 
-	return u, nil
+	return user.modelDotUser(), nil
 }
 
-func (m *MgoUserManager) findAll(limit int, offsetId interface{}, fields []string,
+func (m *MgoUserManager) findAll(limit int, offsetId string, fields []string,
 	filter bson.M) ([]*model.User, error) {
 	if limit == 0 {
 		return nil, ErrNoResult
@@ -184,7 +229,7 @@ func (m *MgoUserManager) findAll(limit int, offsetId interface{}, fields []strin
 		filter = bson.M{}
 	}
 
-	if offsetId != nil {
+	if bson.IsObjectIdHex(offsetId) {
 		oid, err := getId(offsetId)
 		if err == nil {
 			filter["_id"] = bson.M{"$gt": oid}
@@ -200,12 +245,12 @@ func (m *MgoUserManager) findAll(limit int, offsetId interface{}, fields []strin
 		query.Select(selector)
 	}
 
-	var accounts []*model.User
+	var accounts []User
 	if limit > 0 {
 		query.Limit(limit)
-		accounts = make([]*model.User, 0, limit)
+		accounts = make([]User, 0, limit)
 	} else {
-		accounts = []*model.User{}
+		accounts = []User{}
 	}
 
 	err := query.All(&accounts)
@@ -213,15 +258,20 @@ func (m *MgoUserManager) findAll(limit int, offsetId interface{}, fields []strin
 		return nil, err
 	}
 
-	return accounts, nil
+	users := make([]*model.User, 0, len(accounts))
+	for _, u := range accounts {
+		users = append(users, u.modelDotUser())
+	}
+
+	return users, nil
 }
 
-func (m *MgoUserManager) FindAll(limit int, offsetId interface{}, fields []string) (
+func (m *MgoUserManager) FindAll(limit int, offsetId string, fields []string) (
 	[]*model.User, error) {
 	return m.findAll(limit, offsetId, fields, nil)
 }
 
-func (m *MgoUserManager) FindAllOnline(limit int, offsetId interface{}, fields []string) (
+func (m *MgoUserManager) FindAllOnline(limit int, offsetId string, fields []string) (
 	[]*model.User, error) {
 	return m.findAll(limit, offsetId, fields, bson.M{
 		"LastActivity": bson.M{"$lt": time.Now().Add(m.MinimumOnlineThreshold)},
@@ -229,23 +279,23 @@ func (m *MgoUserManager) FindAllOnline(limit int, offsetId interface{}, fields [
 }
 
 func (m *MgoUserManager) updateLastActivity(id bson.ObjectId) (*model.User, error) {
-	u := &model.User{}
-	err := m.UserColl.FindId(id).One(u)
+	user := &User{}
+	err := m.UserColl.FindId(id).One(user)
 	if err != nil {
 		return nil, err
 	}
 
 	now := time.Now()
-	u.LastActivity = &now
+	user.LastActivity = &now
 	// ??? should we ignore the error return here?
 	err = m.UserColl.UpdateId(id, bson.M{
-		"$set": bson.M{"LastActivity": *u.LastActivity},
+		"$set": bson.M{"LastActivity": *user.LastActivity},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return u, nil
+	return user.modelDotUser(), nil
 }
 
 func (m *MgoUserManager) Get(token string) (*model.User, error) {
@@ -265,7 +315,7 @@ func (m *MgoUserManager) Get(token string) (*model.User, error) {
 	return m.updateLastActivity(state.UserId)
 }
 
-func (m *MgoUserManager) Login(id interface{}, stay time.Duration) (string, error) {
+func (m *MgoUserManager) Login(id string, stay time.Duration) (string, error) {
 	if stay < m.MinimumOnlineThreshold {
 		stay = m.MinimumOnlineThreshold
 	}
@@ -292,4 +342,16 @@ func (m *MgoUserManager) Login(id interface{}, stay time.Duration) (string, erro
 
 func (m *MgoUserManager) Logout(token string) error {
 	return m.LoginColl.RemoveId(token)
+}
+
+func (m *MgoUserManager) ComparePassword(ps string, pwd *model.Password) error {
+	pwdBytes := []byte(ps)
+	tmp := make([]byte, len(pwdBytes)+len(pwd.Salt))
+	copy(tmp, pwdBytes)
+	tmp = append(tmp, pwd.Salt...)
+	if err := bcrypt.CompareHashAndPassword(pwd.Hashed, tmp); err != nil {
+		return err
+	}
+
+	return nil
 }

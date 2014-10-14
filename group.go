@@ -11,6 +11,11 @@ type MgoGroupManager struct {
 	DefaultLimit int
 }
 
+type Group struct {
+	Id           bson.ObjectId `bson:"_id"`
+	*model.Group `bson:",inline"`
+}
+
 func NewMgoGroupManager(db *mgo.Database) *MgoGroupManager {
 	mngr := &MgoGroupManager{}
 	mngr.GroupColl = db.C("mgoauth_group")
@@ -18,8 +23,12 @@ func NewMgoGroupManager(db *mgo.Database) *MgoGroupManager {
 	return mngr
 }
 
-func (m *MgoGroupManager) AddDetail(group *model.Group) (*model.Group, error) {
+func (m *MgoGroupManager) AddDetail(g *model.Group) (*model.Group, error) {
+	group := &Group{}
 	group.Id = bson.NewObjectId()
+	sid := group.Id.Hex()
+	group.Group = g
+	group.Group.Id = &sid
 	if group.Name == nil {
 		return nil, model.ErrInvalidEmail
 	}
@@ -32,11 +41,11 @@ func (m *MgoGroupManager) AddDetail(group *model.Group) (*model.Group, error) {
 		return nil, err
 	}
 
-	return group, nil
+	return group.Group, nil
 }
 
 func (m *MgoGroupManager) UpdateDetail(group *model.Group) error {
-	oid, err := getId(group.Id)
+	oid, err := getId(*group.Id)
 	if err != nil {
 		return err
 	}
@@ -52,7 +61,7 @@ func (m *MgoGroupManager) UpdateDetail(group *model.Group) error {
 	return m.GroupColl.UpdateId(oid, bson.M{"$set": change})
 }
 
-func (m *MgoGroupManager) Find(id interface{}) (*model.Group, error) {
+func (m *MgoGroupManager) Find(id string) (*model.Group, error) {
 	oid, err := getId(id)
 	if err != nil {
 		return nil, err
@@ -77,7 +86,7 @@ func (m *MgoGroupManager) FindByName(name string) (*model.Group, error) {
 	return group, nil
 }
 
-func (m *MgoGroupManager) FindSome(id ...interface{}) (
+func (m *MgoGroupManager) FindSome(id ...string) (
 	[]*model.Group, error) {
 	aid := make([]bson.ObjectId, 0, len(id))
 	for _, v := range id {
@@ -101,7 +110,7 @@ func (m *MgoGroupManager) FindSome(id ...interface{}) (
 	return groups, nil
 }
 
-func (m *MgoGroupManager) FindAll(limit int, offsetId interface{}, fields []string) (
+func (m *MgoGroupManager) FindAll(limit int, offsetId string, fields []string) (
 	[]*model.Group, error) {
 	if limit == 0 {
 		return nil, ErrNoResult
@@ -144,7 +153,7 @@ func (m *MgoGroupManager) FindAll(limit int, offsetId interface{}, fields []stri
 
 }
 
-func (m *MgoGroupManager) Delete(id interface{}) error {
+func (m *MgoGroupManager) Delete(id string) error {
 	oid, err := getId(id)
 	if err != nil {
 		return err

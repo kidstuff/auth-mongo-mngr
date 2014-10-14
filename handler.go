@@ -18,9 +18,6 @@ func Initial(db *mgo.Database) {
 			},
 		}
 	}
-
-	auth.ID_FROM_STRING = _IdFromString
-	auth.ID_TO_STRING = _IdToString
 }
 
 type mongoMngrHandler struct {

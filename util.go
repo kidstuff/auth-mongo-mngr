@@ -15,44 +15,12 @@ type LoginState struct {
 
 // getId returns bson.ObjectId form given id.
 // id must be a valid bson.ObjectId or a valid ObjectIdHex
-func getId(id interface{}) (bson.ObjectId, error) {
-	oid, ok := id.(bson.ObjectId)
-	if ok {
-		return oid, nil
-	}
-
-	sid, ok := id.(string)
-	if !ok || !bson.IsObjectIdHex(sid) {
+func getId(id string) (bson.ObjectId, error) {
+	if !bson.IsObjectIdHex(id) {
 		return "", model.ErrInvalidId
 	}
 
-	return bson.ObjectIdHex(sid), nil
-}
-
-func _IdToString(id interface{}) (string, error) {
-	oid, err := getId(id)
-	if err != nil {
-		return "", err
-	}
-
-	return oid.Hex(), nil
-}
-
-func _IdFromString(s string) (interface{}, error) {
-	if bson.IsObjectIdHex(s) {
-		return bson.ObjectIdHex(s), nil
-	}
-
-	return "", nil
-}
-
-func EqualIdChecker(id interface{}, sid string) bool {
-	oid, err := getId(id)
-	if err != nil {
-		return false
-	}
-
-	return oid.Hex() == sid
+	return bson.ObjectIdHex(id), nil
 }
 
 // EnsureIndex builds the index for users data and login state collection.
