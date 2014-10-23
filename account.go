@@ -73,10 +73,6 @@ func (m *MgoUserManager) newUser(email, pwd string, app bool) (*User, error) {
 	sid := u.Id.Hex()
 	u.User.Id = &sid
 	u.Email = &email
-	now := time.Now()
-	u.LastActivity = &now
-	u.Profile = &model.Profile{}
-	u.Profile.JoinDay = u.LastActivity
 
 	p, err := hashPwd(pwd)
 	if err != nil {
@@ -97,6 +93,13 @@ func (m *MgoUserManager) newUser(email, pwd string, app bool) (*User, error) {
 }
 
 func (m *MgoUserManager) insertUser(u *User) error {
+	now := time.Now()
+	u.LastActivity = &now
+	if u.Profile == nil {
+		u.Profile = &model.Profile{}
+	}
+	u.Profile.JoinDay = u.LastActivity
+
 	err := m.UserColl.Insert(u)
 	if err != nil {
 		if mgo.IsDup(err) {
@@ -129,7 +132,7 @@ func (m *MgoUserManager) AddDetail(email, pwd string, app bool, pri []string,
 	if err != nil {
 		return nil, err
 	}
-	u.Privilege = pri
+	u.Privileges = pri
 	u.ConfirmCodes = code
 	u.Profile = profile
 	u.Groups = groups
