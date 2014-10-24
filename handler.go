@@ -6,6 +6,7 @@ import (
 	"net/http"
 )
 
+// Initial function should be called in the application first start
 func Initial(db *mgo.Database) {
 	auth.HANDLER_REGISTER = func(fn auth.HandleFunc, owner bool, groups, pri []string) http.Handler {
 		return mongoMngrHandler{
