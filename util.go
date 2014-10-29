@@ -42,7 +42,7 @@ func EnsureIndex(db *mgo.Database) error {
 		return err
 	}
 
-	err = userColl.EnsureIndexKey("BriefGroups._id")
+	err = userColl.EnsureIndexKey("Groups._id")
 	if err != nil {
 		return err
 	}
