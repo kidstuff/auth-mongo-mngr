@@ -2,12 +2,12 @@ package mgoauth_test
 
 import (
 	"github.com/kidstuff/auth-mongo-mngr"
-	"github.com/kidstuff/auth/model"
+	"github.com/kidstuff/auth/authmodel"
 	"labix.org/v2/mgo"
 	"testing"
 )
 
-func newManager(dbname string) model.Manager {
+func newManager(dbname string) authmodel.Manager {
 	session, err := mgo.Dial("localhost")
 	if err != nil {
 		panic(err)
@@ -45,7 +45,7 @@ func TestMgoUserManager(t *testing.T) {
 	}
 
 	_, err = mngr.AddUser("user1@example.com", "zaq123456", true)
-	if err != model.ErrDuplicateEmail {
+	if err != authmodel.ErrDuplicateEmail {
 		t.Fatal("must check for duplicate email")
 	}
 

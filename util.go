@@ -1,7 +1,7 @@
 package mgoauth
 
 import (
-	"github.com/kidstuff/auth/model"
+	"github.com/kidstuff/auth/authmodel"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"time"
@@ -17,7 +17,7 @@ type LoginState struct {
 // id must be a valid bson.ObjectId or a valid ObjectIdHex
 func getId(id string) (bson.ObjectId, error) {
 	if !bson.IsObjectIdHex(id) {
-		return "", model.ErrInvalidId
+		return "", authmodel.ErrInvalidId
 	}
 
 	return bson.ObjectIdHex(id), nil

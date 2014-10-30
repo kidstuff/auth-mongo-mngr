@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/gorilla/securecookie"
-	"github.com/kidstuff/auth/model"
+	"github.com/kidstuff/auth/authmodel"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"strings"
@@ -17,8 +17,8 @@ var (
 )
 
 type User struct {
-	Id         bson.ObjectId `bson:"_id"`
-	model.User `bson:",inline"`
+	Id             bson.ObjectId `bson:"_id"`
+	authmodel.User `bson:",inline"`
 }
 
 type MgoManager struct {
@@ -26,7 +26,7 @@ type MgoManager struct {
 	GroupColl              *mgo.Collection
 	UserColl               *mgo.Collection
 	LoginColl              *mgo.Collection
-	Formater               model.FormatChecker
+	Formater               authmodel.FormatChecker
 	DefaultLimit           int
 }
 
@@ -39,13 +39,13 @@ func NewMgoManager(db *mgo.Database) *MgoManager {
 		DefaultLimit:           500,
 	}
 
-	mngr.Formater, _ = model.NewSimpleChecker(9)
+	mngr.Formater, _ = authmodel.NewSimpleChecker(9)
 
 	return mngr
 }
 
-func hashPwd(pwd string) (model.Password, error) {
-	p := model.Password{}
+func hashPwd(pwd string) (authmodel.Password, error) {
+	p := authmodel.Password{}
 	p.InitAt = time.Now()
 	p.Salt = securecookie.GenerateRandomKey(32)
 
@@ -61,11 +61,11 @@ func hashPwd(pwd string) (model.Password, error) {
 
 func (m *MgoManager) newUser(email, pwd string, app bool) (*User, error) {
 	if !m.Formater.EmailValidate(email) {
-		return nil, model.ErrInvalidEmail
+		return nil, authmodel.ErrInvalidEmail
 	}
 
 	if !m.Formater.PasswordValidate(pwd) {
-		return nil, model.ErrInvalidPassword
+		return nil, authmodel.ErrInvalidPassword
 	}
 
 	u := &User{}
@@ -96,14 +96,14 @@ func (m *MgoManager) insertUser(u *User) error {
 	now := time.Now()
 	u.LastActivity = &now
 	if u.Profile == nil {
-		u.Profile = &model.Profile{}
+		u.Profile = &authmodel.Profile{}
 	}
 	u.Profile.JoinDay = u.LastActivity
 
 	err := m.UserColl.Insert(u)
 	if err != nil {
 		if mgo.IsDup(err) {
-			return model.ErrDuplicateEmail
+			return authmodel.ErrDuplicateEmail
 		}
 		return err
 	}
@@ -111,7 +111,7 @@ func (m *MgoManager) insertUser(u *User) error {
 	return nil
 }
 
-func (m *MgoManager) AddUser(email, pwd string, app bool) (*model.User,
+func (m *MgoManager) AddUser(email, pwd string, app bool) (*authmodel.User,
 	error) {
 	u, err := m.newUser(email, pwd, app)
 	if err != nil {
@@ -127,7 +127,7 @@ func (m *MgoManager) AddUser(email, pwd string, app bool) (*model.User,
 }
 
 func (m *MgoManager) AddUserDetail(email, pwd string, app bool, pri []string,
-	code map[string]string, profile *model.Profile, groupIds []string) (*model.User, error) {
+	code map[string]string, profile *authmodel.Profile, groupIds []string) (*authmodel.User, error) {
 	u, err := m.newUser(email, pwd, app)
 	if err != nil {
 		return nil, err
@@ -151,9 +151,9 @@ func (m *MgoManager) AddUserDetail(email, pwd string, app bool, pri []string,
 }
 
 func (m *MgoManager) UpdateUserDetail(id string, pwd *string, app *bool, pri []string,
-	code map[string]string, profile *model.Profile, groupIds []string) error {
+	code map[string]string, profile *authmodel.Profile, groupIds []string) error {
 	if !bson.IsObjectIdHex(id) {
-		return model.ErrInvalidId
+		return authmodel.ErrInvalidId
 	}
 	oid := bson.ObjectIdHex(id)
 
@@ -192,13 +192,13 @@ func (m *MgoManager) DeleteUser(id string) error {
 	return m.UserColl.RemoveId(oid)
 }
 
-func (m *MgoManager) FindUser(id string) (*model.User, error) {
+func (m *MgoManager) FindUser(id string) (*authmodel.User, error) {
 	oid, err := getId(id)
 	if err != nil {
 		return nil, err
 	}
 
-	user := &model.User{}
+	user := &authmodel.User{}
 	err = m.UserColl.FindId(oid).One(user)
 	if err != nil {
 		return nil, err
@@ -207,12 +207,12 @@ func (m *MgoManager) FindUser(id string) (*model.User, error) {
 	return user, nil
 }
 
-func (m *MgoManager) FindUserByEmail(email string) (*model.User, error) {
+func (m *MgoManager) FindUserByEmail(email string) (*authmodel.User, error) {
 	if !m.Formater.EmailValidate(email) {
-		return nil, model.ErrInvalidEmail
+		return nil, authmodel.ErrInvalidEmail
 	}
 
-	user := &model.User{}
+	user := &authmodel.User{}
 	err := m.UserColl.Find(bson.M{"Email": email}).One(user)
 	if err != nil {
 		return nil, err
@@ -222,7 +222,7 @@ func (m *MgoManager) FindUserByEmail(email string) (*model.User, error) {
 }
 
 func (m *MgoManager) findAll(limit int, offsetId string, fields []string,
-	filter bson.M) ([]*model.User, error) {
+	filter bson.M) ([]*authmodel.User, error) {
 	if limit == 0 {
 		return nil, ErrNoResult
 	}
@@ -251,12 +251,12 @@ func (m *MgoManager) findAll(limit int, offsetId string, fields []string,
 		query.Select(selector)
 	}
 
-	var users []*model.User
+	var users []*authmodel.User
 	if limit > 0 {
 		query.Limit(limit)
-		users = make([]*model.User, 0, limit)
+		users = make([]*authmodel.User, 0, limit)
 	} else {
-		users = []*model.User{}
+		users = []*authmodel.User{}
 	}
 
 	err := query.All(&users)
@@ -268,7 +268,7 @@ func (m *MgoManager) findAll(limit int, offsetId string, fields []string,
 }
 
 func (m *MgoManager) FindAllUser(limit int, offsetId string, fields []string,
-	groupIds []string) ([]*model.User, error) {
+	groupIds []string) ([]*authmodel.User, error) {
 	var filter bson.M
 	if groupIds != nil {
 		filter = bson.M{"Groups.Id": bson.M{"$in": groupIds}}
@@ -278,14 +278,14 @@ func (m *MgoManager) FindAllUser(limit int, offsetId string, fields []string,
 }
 
 func (m *MgoManager) FindAllUserOnline(limit int, offsetId string, fields []string) (
-	[]*model.User, error) {
+	[]*authmodel.User, error) {
 	return m.findAll(limit, offsetId, fields, bson.M{
 		"LastActivity": bson.M{"$lt": time.Now().Add(m.MinimumOnlineThreshold)},
 	})
 }
 
-func (m *MgoManager) updateLastActivity(id bson.ObjectId) (*model.User, error) {
-	user := &model.User{}
+func (m *MgoManager) updateLastActivity(id bson.ObjectId) (*authmodel.User, error) {
+	user := &authmodel.User{}
 	err := m.UserColl.FindId(id).One(user)
 	if err != nil {
 		return nil, err
@@ -304,12 +304,12 @@ func (m *MgoManager) updateLastActivity(id bson.ObjectId) (*model.User, error) {
 	return user, nil
 }
 
-func (m *MgoManager) GetUser(token string) (*model.User, error) {
+func (m *MgoManager) GetUser(token string) (*authmodel.User, error) {
 	state := LoginState{}
 	err := m.LoginColl.FindId(token).One(&state)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			return nil, model.ErrNotLogged
+			return nil, authmodel.ErrNotLogged
 		}
 		return nil, err
 	}
@@ -350,7 +350,7 @@ func (m *MgoManager) Logout(token string) error {
 	return m.LoginColl.RemoveId(token)
 }
 
-func (m *MgoManager) ComparePassword(ps string, pwd *model.Password) error {
+func (m *MgoManager) ComparePassword(ps string, pwd *authmodel.Password) error {
 	pwdBytes := []byte(ps)
 	tmp := make([]byte, len(pwdBytes)+len(pwd.Salt))
 	copy(tmp, pwdBytes)

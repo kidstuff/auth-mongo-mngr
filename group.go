@@ -1,17 +1,17 @@
 package mgoauth
 
 import (
-	"github.com/kidstuff/auth/model"
+	"github.com/kidstuff/auth/authmodel"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )
 
 type Group struct {
-	Id          bson.ObjectId `bson:"_id"`
-	model.Group `bson:",inline"`
+	Id              bson.ObjectId `bson:"_id"`
+	authmodel.Group `bson:",inline"`
 }
 
-func (m *MgoManager) AddGroupDetail(name string, pri []string, info *model.GroupInfo) (*model.Group, error) {
+func (m *MgoManager) AddGroupDetail(name string, pri []string, info *authmodel.GroupInfo) (*authmodel.Group, error) {
 	group := &Group{}
 	group.Id = bson.NewObjectId()
 	sid := group.Id.Hex()
@@ -20,13 +20,13 @@ func (m *MgoManager) AddGroupDetail(name string, pri []string, info *model.Group
 	group.Privilege = pri
 	group.Info = info
 	if group.Name == nil {
-		return nil, model.ErrInvalidEmail
+		return nil, authmodel.ErrInvalidEmail
 	}
 
 	err := m.GroupColl.Insert(group)
 	if err != nil {
 		if mgo.IsDup(err) {
-			return nil, model.ErrDuplicateName
+			return nil, authmodel.ErrDuplicateName
 		}
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (m *MgoManager) AddGroupDetail(name string, pri []string, info *model.Group
 	return &group.Group, nil
 }
 
-func (m *MgoManager) UpdateGroupDetail(id string, pri []string, info *model.GroupInfo) error {
+func (m *MgoManager) UpdateGroupDetail(id string, pri []string, info *authmodel.GroupInfo) error {
 	oid, err := getId(id)
 	if err != nil {
 		return err
@@ -51,13 +51,13 @@ func (m *MgoManager) UpdateGroupDetail(id string, pri []string, info *model.Grou
 	return m.GroupColl.UpdateId(oid, bson.M{"$set": change})
 }
 
-func (m *MgoManager) FindGroup(id string) (*model.Group, error) {
+func (m *MgoManager) FindGroup(id string) (*authmodel.Group, error) {
 	oid, err := getId(id)
 	if err != nil {
 		return nil, err
 	}
 
-	group := &model.Group{}
+	group := &authmodel.Group{}
 	err = m.GroupColl.FindId(oid).One(group)
 	if err != nil {
 		return nil, err
@@ -66,8 +66,8 @@ func (m *MgoManager) FindGroup(id string) (*model.Group, error) {
 	return group, nil
 }
 
-func (m *MgoManager) FindGroupByName(name string) (*model.Group, error) {
-	group := &model.Group{}
+func (m *MgoManager) FindGroupByName(name string) (*authmodel.Group, error) {
+	group := &authmodel.Group{}
 	err := m.GroupColl.Find(bson.M{"Name": name}).One(group)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (m *MgoManager) FindGroupByName(name string) (*model.Group, error) {
 }
 
 func (m *MgoManager) FindSomeGroup(id ...string) (
-	[]*model.Group, error) {
+	[]*authmodel.Group, error) {
 	aid := make([]bson.ObjectId, 0, len(id))
 	for _, v := range id {
 		oid, err := getId(v)
@@ -91,7 +91,7 @@ func (m *MgoManager) FindSomeGroup(id ...string) (
 		return nil, ErrNoResult
 	}
 
-	groups := make([]*model.Group, 0, len(aid))
+	groups := make([]*authmodel.Group, 0, len(aid))
 	err := m.GroupColl.Find(bson.M{"_id": bson.M{"$in": aid}}).All(&groups)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (m *MgoManager) FindSomeGroup(id ...string) (
 }
 
 func (m *MgoManager) FindAllGroup(limit int, offsetId string, fields []string) (
-	[]*model.Group, error) {
+	[]*authmodel.Group, error) {
 	if limit == 0 {
 		return nil, ErrNoResult
 	}
@@ -125,12 +125,12 @@ func (m *MgoManager) FindAllGroup(limit int, offsetId string, fields []string) (
 		query.Select(selector)
 	}
 
-	var groups []*model.Group
+	var groups []*authmodel.Group
 	if limit > 0 {
 		query.Limit(limit)
-		groups = make([]*model.Group, 0, limit)
+		groups = make([]*authmodel.Group, 0, limit)
 	} else {
-		groups = []*model.Group{}
+		groups = []*authmodel.Group{}
 	}
 
 	err = query.All(&groups)
