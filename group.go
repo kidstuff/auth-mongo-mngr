@@ -6,7 +6,7 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
-type MgoGroupManager struct {
+type MgoManager struct {
 	GroupColl    *mgo.Collection
 	DefaultLimit int
 }
@@ -16,14 +16,7 @@ type Group struct {
 	model.Group `bson:",inline"`
 }
 
-func NewMgoGroupManager(db *mgo.Database) *MgoGroupManager {
-	mngr := &MgoGroupManager{}
-	mngr.GroupColl = db.C("mgoauth_group")
-	mngr.DefaultLimit = 500
-	return mngr
-}
-
-func (m *MgoGroupManager) AddDetail(name string, pri []string, info *model.GroupInfo) (*model.Group, error) {
+func (m *MgoManager) AddGroupDetail(name string, pri []string, info *model.GroupInfo) (*model.Group, error) {
 	group := &Group{}
 	group.Id = bson.NewObjectId()
 	sid := group.Id.Hex()
@@ -46,7 +39,7 @@ func (m *MgoGroupManager) AddDetail(name string, pri []string, info *model.Group
 	return &group.Group, nil
 }
 
-func (m *MgoGroupManager) UpdateDetail(id string, pri []string, info *model.GroupInfo) error {
+func (m *MgoManager) UpdateGroupDetail(id string, pri []string, info *model.GroupInfo) error {
 	oid, err := getId(id)
 	if err != nil {
 		return err
@@ -63,7 +56,7 @@ func (m *MgoGroupManager) UpdateDetail(id string, pri []string, info *model.Grou
 	return m.GroupColl.UpdateId(oid, bson.M{"$set": change})
 }
 
-func (m *MgoGroupManager) Find(id string) (*model.Group, error) {
+func (m *MgoManager) FindGroup(id string) (*model.Group, error) {
 	oid, err := getId(id)
 	if err != nil {
 		return nil, err
@@ -78,7 +71,7 @@ func (m *MgoGroupManager) Find(id string) (*model.Group, error) {
 	return group, nil
 }
 
-func (m *MgoGroupManager) FindByName(name string) (*model.Group, error) {
+func (m *MgoManager) FindGroupByName(name string) (*model.Group, error) {
 	group := &model.Group{}
 	err := m.GroupColl.Find(bson.M{"Name": name}).One(group)
 	if err != nil {
@@ -88,7 +81,7 @@ func (m *MgoGroupManager) FindByName(name string) (*model.Group, error) {
 	return group, nil
 }
 
-func (m *MgoGroupManager) FindSome(id ...string) (
+func (m *MgoManager) FindSomeGroup(id ...string) (
 	[]*model.Group, error) {
 	aid := make([]bson.ObjectId, 0, len(id))
 	for _, v := range id {
@@ -112,7 +105,7 @@ func (m *MgoGroupManager) FindSome(id ...string) (
 	return groups, nil
 }
 
-func (m *MgoGroupManager) FindAll(limit int, offsetId string, fields []string) (
+func (m *MgoManager) FindAllGroup(limit int, offsetId string, fields []string) (
 	[]*model.Group, error) {
 	if limit == 0 {
 		return nil, ErrNoResult
@@ -155,7 +148,7 @@ func (m *MgoGroupManager) FindAll(limit int, offsetId string, fields []string) (
 
 }
 
-func (m *MgoGroupManager) Delete(id string) error {
+func (m *MgoManager) DeleteGroup(id string) error {
 	oid, err := getId(id)
 	if err != nil {
 		return err

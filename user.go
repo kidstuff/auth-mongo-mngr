@@ -21,8 +21,9 @@ type User struct {
 	model.User `bson:",inline"`
 }
 
-type MgoUserManager struct {
+type MgoManager struct {
 	MinimumOnlineThreshold time.Duration
+	GroupColl              *mgo.Collection
 	UserColl               *mgo.Collection
 	LoginColl              *mgo.Collection
 	Formater               model.FormatChecker
@@ -30,8 +31,8 @@ type MgoUserManager struct {
 	DefaultLimit           int
 }
 
-func NewMgoUserManager(db *mgo.Database, groupMngr model.GroupManager) *MgoUserManager {
-	mngr := &MgoUserManager{
+func NewMgoManager(db *mgo.Database, groupMngr model.GroupManager) *MgoManager {
+	mngr := &MgoManager{
 		UserColl:               db.C("mgoauth_user"),
 		LoginColl:              db.C("mgoauth_login"),
 		MinimumOnlineThreshold: time.Minute * 5,
@@ -59,7 +60,7 @@ func hashPwd(pwd string) (model.Password, error) {
 	return p, err
 }
 
-func (m *MgoUserManager) newUser(email, pwd string, app bool) (*User, error) {
+func (m *MgoManager) newUser(email, pwd string, app bool) (*User, error) {
 	if !m.Formater.EmailValidate(email) {
 		return nil, model.ErrInvalidEmail
 	}
@@ -92,7 +93,7 @@ func (m *MgoUserManager) newUser(email, pwd string, app bool) (*User, error) {
 	return u, nil
 }
 
-func (m *MgoUserManager) insertUser(u *User) error {
+func (m *MgoManager) insertUser(u *User) error {
 	now := time.Now()
 	u.LastActivity = &now
 	if u.Profile == nil {
@@ -111,7 +112,7 @@ func (m *MgoUserManager) insertUser(u *User) error {
 	return nil
 }
 
-func (m *MgoUserManager) Add(email, pwd string, app bool) (*model.User,
+func (m *MgoManager) AddUser(email, pwd string, app bool) (*model.User,
 	error) {
 	u, err := m.newUser(email, pwd, app)
 	if err != nil {
@@ -126,8 +127,8 @@ func (m *MgoUserManager) Add(email, pwd string, app bool) (*model.User,
 	return &u.User, nil
 }
 
-func (m *MgoUserManager) AddDetail(email, pwd string, app bool, pri []string,
-	code map[string]string, profile *model.Profile, groups []model.Group) (*model.User, error) {
+func (m *MgoManager) AddUserDetail(email, pwd string, app bool, pri []string,
+	code map[string]string, profile *model.Profile, groupIds []string) (*model.User, error) {
 	u, err := m.newUser(email, pwd, app)
 	if err != nil {
 		return nil, err
@@ -135,7 +136,12 @@ func (m *MgoUserManager) AddDetail(email, pwd string, app bool, pri []string,
 	u.Privileges = pri
 	u.ConfirmCodes = code
 	u.Profile = profile
-	u.Groups = groups
+	if groupIds != nil {
+		groups, err := m.GroupMngr.FindSome(groupIds...)
+		if err == nil {
+			u.Groups = groups
+		}
+	}
 
 	err = m.insertUser(u)
 	if err != nil {
@@ -145,8 +151,8 @@ func (m *MgoUserManager) AddDetail(email, pwd string, app bool, pri []string,
 	return &u.User, nil
 }
 
-func (m *MgoUserManager) UpdateDetail(id string, pwd *string, app *bool, pri []string,
-	code map[string]string, profile *model.Profile, groups []model.Group) error {
+func (m *MgoManager) UpdateUserDetail(id string, pwd *string, app *bool, pri []string,
+	code map[string]string, profile *model.Profile, groupIds []string) error {
 	if !bson.IsObjectIdHex(id) {
 		return model.ErrInvalidId
 	}
@@ -159,8 +165,11 @@ func (m *MgoUserManager) UpdateDetail(id string, pwd *string, app *bool, pri []s
 	if code != nil {
 		changes["ConfirmCodes"] = code
 	}
-	if groups != nil {
-		changes["Groups"] = groups
+	if groupIds != nil {
+		groups, err := m.GroupMngr.FindSome(groupIds...)
+		if err == nil {
+			changes["Groups"] = groups
+		}
 	}
 	if app != nil {
 		changes["Approved"] = *app
@@ -175,7 +184,7 @@ func (m *MgoUserManager) UpdateDetail(id string, pwd *string, app *bool, pri []s
 	return m.UserColl.UpdateId(oid, bson.M{"$set": changes})
 }
 
-func (m *MgoUserManager) Delete(id string) error {
+func (m *MgoManager) DeleteUser(id string) error {
 	oid, err := getId(id)
 	if err != nil {
 		return err
@@ -184,7 +193,7 @@ func (m *MgoUserManager) Delete(id string) error {
 	return m.UserColl.RemoveId(oid)
 }
 
-func (m *MgoUserManager) Find(id string) (*model.User, error) {
+func (m *MgoManager) FindUser(id string) (*model.User, error) {
 	oid, err := getId(id)
 	if err != nil {
 		return nil, err
@@ -199,7 +208,7 @@ func (m *MgoUserManager) Find(id string) (*model.User, error) {
 	return user, nil
 }
 
-func (m *MgoUserManager) FindByEmail(email string) (*model.User, error) {
+func (m *MgoManager) FindUserByEmail(email string) (*model.User, error) {
 	if !m.Formater.EmailValidate(email) {
 		return nil, model.ErrInvalidEmail
 	}
@@ -213,7 +222,7 @@ func (m *MgoUserManager) FindByEmail(email string) (*model.User, error) {
 	return user, nil
 }
 
-func (m *MgoUserManager) findAll(limit int, offsetId string, fields []string,
+func (m *MgoManager) findAll(limit int, offsetId string, fields []string,
 	filter bson.M) ([]*model.User, error) {
 	if limit == 0 {
 		return nil, ErrNoResult
@@ -259,19 +268,24 @@ func (m *MgoUserManager) findAll(limit int, offsetId string, fields []string,
 	return users, nil
 }
 
-func (m *MgoUserManager) FindAll(limit int, offsetId string, fields []string) (
-	[]*model.User, error) {
-	return m.findAll(limit, offsetId, fields, nil)
+func (m *MgoManager) FindAllUser(limit int, offsetId string, fields []string,
+	groupIds []string) ([]*model.User, error) {
+	var filter bson.M
+	if groupIds != nil {
+		filter = bson.M{"Groups.Id": bson.M{"$in": groupIds}}
+	}
+
+	return m.findAll(limit, offsetId, fields, filter)
 }
 
-func (m *MgoUserManager) FindAllOnline(limit int, offsetId string, fields []string) (
+func (m *MgoManager) FindAllUserOnline(limit int, offsetId string, fields []string) (
 	[]*model.User, error) {
 	return m.findAll(limit, offsetId, fields, bson.M{
 		"LastActivity": bson.M{"$lt": time.Now().Add(m.MinimumOnlineThreshold)},
 	})
 }
 
-func (m *MgoUserManager) updateLastActivity(id bson.ObjectId) (*model.User, error) {
+func (m *MgoManager) updateLastActivity(id bson.ObjectId) (*model.User, error) {
 	user := &model.User{}
 	err := m.UserColl.FindId(id).One(user)
 	if err != nil {
@@ -291,7 +305,7 @@ func (m *MgoUserManager) updateLastActivity(id bson.ObjectId) (*model.User, erro
 	return user, nil
 }
 
-func (m *MgoUserManager) Get(token string) (*model.User, error) {
+func (m *MgoManager) GetUser(token string) (*model.User, error) {
 	state := LoginState{}
 	err := m.LoginColl.FindId(token).One(&state)
 	if err != nil {
@@ -308,7 +322,7 @@ func (m *MgoUserManager) Get(token string) (*model.User, error) {
 	return m.updateLastActivity(state.UserId)
 }
 
-func (m *MgoUserManager) Login(id string, stay time.Duration) (string, error) {
+func (m *MgoManager) Login(id string, stay time.Duration) (string, error) {
 	if stay < m.MinimumOnlineThreshold {
 		stay = m.MinimumOnlineThreshold
 	}
@@ -333,11 +347,11 @@ func (m *MgoUserManager) Login(id string, stay time.Duration) (string, error) {
 	return state.Token, nil
 }
 
-func (m *MgoUserManager) Logout(token string) error {
+func (m *MgoManager) Logout(token string) error {
 	return m.LoginColl.RemoveId(token)
 }
 
-func (m *MgoUserManager) ComparePassword(ps string, pwd *model.Password) error {
+func (m *MgoManager) ComparePassword(ps string, pwd *model.Password) error {
 	pwdBytes := []byte(ps)
 	tmp := make([]byte, len(pwdBytes)+len(pwd.Salt))
 	copy(tmp, pwdBytes)
