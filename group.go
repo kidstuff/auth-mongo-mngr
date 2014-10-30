@@ -17,7 +17,7 @@ func (m *MgoManager) AddGroupDetail(name string, pri []string, info *authmodel.G
 	sid := group.Id.Hex()
 	group.Group.Id = &sid
 	group.Name = &name
-	group.Privilege = pri
+	group.Privileges = pri
 	group.Info = info
 	if group.Name == nil {
 		return nil, authmodel.ErrInvalidEmail
@@ -148,6 +148,11 @@ func (m *MgoManager) DeleteGroup(id string) error {
 	if err != nil {
 		return err
 	}
-	// TODO: remove this group form user briefgroups too?
+
+	err = m.UserColl.Update(bson.M{"Groups.Id": id}, bson.M{"$pull": bson.M{"Groups.Id": id}})
+	if err != nil {
+		return err
+	}
+
 	return m.GroupColl.RemoveId(oid)
 }
