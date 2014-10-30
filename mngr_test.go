@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func NewUserManager(dbname string) model.UserManager {
+func newManager(dbname string) model.Manager {
 	session, err := mgo.Dial("localhost")
 	if err != nil {
 		panic(err)
@@ -16,7 +16,7 @@ func NewUserManager(dbname string) model.UserManager {
 	db := session.DB(dbname)
 
 	mgoauth.EnsureIndex(db)
-	return mgoauth.NewMgoUserManager(db, NewGroupManager(dbname))
+	return mgoauth.NewMgoManager(db)
 }
 
 func tearDown(dbname string) {
@@ -32,10 +32,10 @@ func tearDown(dbname string) {
 
 func TestMgoUserManager(t *testing.T) {
 	dbname := "mgoauth_test_user_mannager"
-	mngr := NewUserManager(dbname)
+	mngr := newManager(dbname)
 	defer tearDown(dbname)
 
-	u1, err := mngr.Add("user1@example.com", "zaq123456", true)
+	u1, err := mngr.AddUser("user1@example.com", "zaq123456", true)
 	if err != nil {
 		t.Fatal("cannot creat new user:", err)
 	}
@@ -44,12 +44,12 @@ func TestMgoUserManager(t *testing.T) {
 		t.Fatal("must initial the LastActivity and JoinDay")
 	}
 
-	_, err = mngr.Add("user1@example.com", "zaq123456", true)
+	_, err = mngr.AddUser("user1@example.com", "zaq123456", true)
 	if err != model.ErrDuplicateEmail {
 		t.Fatal("must check for duplicate email")
 	}
 
-	u1b, err := mngr.Find(*u1.Id)
+	u1b, err := mngr.FindUser(*u1.Id)
 	if err != nil || *u1.Email != *u1b.Email {
 		t.Fatal("cannot find user by Id")
 	}

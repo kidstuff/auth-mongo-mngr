@@ -27,16 +27,15 @@ type MgoManager struct {
 	UserColl               *mgo.Collection
 	LoginColl              *mgo.Collection
 	Formater               model.FormatChecker
-	GroupMngr              model.GroupManager
 	DefaultLimit           int
 }
 
-func NewMgoManager(db *mgo.Database, groupMngr model.GroupManager) *MgoManager {
+func NewMgoManager(db *mgo.Database) *MgoManager {
 	mngr := &MgoManager{
+		GroupColl:              db.C("mgoauth_group"),
 		UserColl:               db.C("mgoauth_user"),
 		LoginColl:              db.C("mgoauth_login"),
 		MinimumOnlineThreshold: time.Minute * 5,
-		GroupMngr:              groupMngr,
 		DefaultLimit:           500,
 	}
 
@@ -137,7 +136,7 @@ func (m *MgoManager) AddUserDetail(email, pwd string, app bool, pri []string,
 	u.ConfirmCodes = code
 	u.Profile = profile
 	if groupIds != nil {
-		groups, err := m.GroupMngr.FindSome(groupIds...)
+		groups, err := m.FindSomeGroup(groupIds...)
 		if err == nil {
 			u.Groups = groups
 		}
@@ -166,7 +165,7 @@ func (m *MgoManager) UpdateUserDetail(id string, pwd *string, app *bool, pri []s
 		changes["ConfirmCodes"] = code
 	}
 	if groupIds != nil {
-		groups, err := m.GroupMngr.FindSome(groupIds...)
+		groups, err := m.FindSomeGroup(groupIds...)
 		if err == nil {
 			changes["Groups"] = groups
 		}

@@ -32,8 +32,7 @@ func (h mongoMngrHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	cloneDB := h.db.Session.Clone().DB(h.db.Name)
 	defer cloneDB.Session.Close()
 
-	h.AuthContext.Groups = NewMgoGroupManager(cloneDB)
-	h.AuthContext.Users = NewMgoUserManager(cloneDB, h.AuthContext.Groups)
+	h.AuthContext.Auth = NewMgoManager(cloneDB)
 	h.AuthContext.Settings = NewMgoConfigMngr(cloneDB)
 	auth.BasicMngrHandler(&h.AuthContext, rw, req, &h.Condition, h.Fn)
 }

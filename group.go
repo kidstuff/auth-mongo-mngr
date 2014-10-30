@@ -6,11 +6,6 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
-type MgoManager struct {
-	GroupColl    *mgo.Collection
-	DefaultLimit int
-}
-
 type Group struct {
 	Id          bson.ObjectId `bson:"_id"`
 	model.Group `bson:",inline"`
