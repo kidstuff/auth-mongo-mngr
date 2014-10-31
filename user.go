@@ -136,7 +136,7 @@ func (m *MgoManager) AddUserDetail(email, pwd string, app bool, pri []string,
 	u.ConfirmCodes = code
 	u.Profile = profile
 	if groupIds != nil {
-		groups, err := m.FindSomeGroup(groupIds...)
+		groups, err := m.FindSomeGroup(groupIds, []string{"Id", "Name"})
 		if err == nil {
 			u.Groups = groups
 		}
@@ -165,7 +165,7 @@ func (m *MgoManager) UpdateUserDetail(id string, pwd *string, app *bool, pri []s
 		changes["ConfirmCodes"] = code
 	}
 	if groupIds != nil {
-		groups, err := m.FindSomeGroup(groupIds...)
+		groups, err := m.FindSomeGroup(groupIds, []string{"Id", "Name"})
 		if err == nil {
 			changes["Groups"] = groups
 		}

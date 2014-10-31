@@ -76,7 +76,7 @@ func (m *MgoManager) FindGroupByName(name string) (*authmodel.Group, error) {
 	return group, nil
 }
 
-func (m *MgoManager) FindSomeGroup(id ...string) (
+func (m *MgoManager) FindSomeGroup(id []string, fields []string) (
 	[]*authmodel.Group, error) {
 	aid := make([]bson.ObjectId, 0, len(id))
 	for _, v := range id {
@@ -92,7 +92,16 @@ func (m *MgoManager) FindSomeGroup(id ...string) (
 	}
 
 	groups := make([]*authmodel.Group, 0, len(aid))
-	err := m.GroupColl.Find(bson.M{"_id": bson.M{"$in": aid}}).All(&groups)
+	query := m.GroupColl.Find(bson.M{"_id": bson.M{"$in": aid}})
+	if len(fields) > 0 {
+		selector := make(bson.M)
+		for _, f := range fields {
+			selector[f] = 1
+		}
+		query.Select(selector)
+	}
+
+	err := query.All(&groups)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +158,8 @@ func (m *MgoManager) DeleteGroup(id string) error {
 		return err
 	}
 
-	err = m.UserColl.Update(bson.M{"Groups.Id": id}, bson.M{"$pull": bson.M{"Groups.Id": id}})
+	_, err = m.UserColl.UpdateAll(bson.M{"Groups.Id": id},
+		bson.M{"$pull": bson.M{"Groups": bson.M{"Id": id}}})
 	if err != nil {
 		return err
 	}

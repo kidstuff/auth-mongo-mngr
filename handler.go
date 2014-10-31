@@ -8,14 +8,13 @@ import (
 
 // Initial function should be called in the application first start
 func Initial(db *mgo.Database) {
-	auth.HANDLER_REGISTER = func(fn auth.HandleFunc, owner bool, groups, pri []string) http.Handler {
+	auth.HANDLER_REGISTER = func(fn auth.HandleFunc, owner bool, pri []string) http.Handler {
 		return mongoMngrHandler{
 			db: db,
 			Fn: fn,
 			Condition: auth.Condition{
-				RequiredGroups: groups,
-				RequiredPri:    pri,
-				Owner:          owner,
+				RequiredPri: pri,
+				Owner:       owner,
 			},
 		}
 	}
