@@ -165,9 +165,13 @@ func (m *MgoManager) UpdateUserDetail(id string, pwd *string, app *bool, pri []s
 		changes["ConfirmCodes"] = code
 	}
 	if groupIds != nil {
-		groups, err := m.FindSomeGroup(groupIds, []string{"Id", "Name"})
-		if err == nil {
-			changes["Groups"] = groups
+		if len(groupIds) == 0 {
+			changes["Groups"] = []*authmodel.Group{}
+		} else {
+			groups, err := m.FindSomeGroup(groupIds, []string{"Id", "Name"})
+			if err == nil {
+				changes["Groups"] = groups
+			}
 		}
 	}
 	if app != nil {
