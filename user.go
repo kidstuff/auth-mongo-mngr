@@ -159,7 +159,7 @@ func (m *MgoManager) UpdateUserDetail(id string, pwd *string, app *bool, pri []s
 
 	changes := make(bson.M)
 	if pri != nil {
-		changes["Privilege"] = pri
+		changes["Privileges"] = pri
 	}
 	if code != nil {
 		changes["ConfirmCodes"] = code
@@ -205,6 +205,10 @@ func (m *MgoManager) FindUser(id string) (*authmodel.User, error) {
 	user := &authmodel.User{}
 	err = m.UserColl.FindId(oid).One(user)
 	if err != nil {
+		if err == mgo.ErrNotFound {
+			return nil, authmodel.ErrNotFound
+		}
+
 		return nil, err
 	}
 
@@ -219,6 +223,10 @@ func (m *MgoManager) FindUserByEmail(email string) (*authmodel.User, error) {
 	user := &authmodel.User{}
 	err := m.UserColl.Find(bson.M{"Email": email}).One(user)
 	if err != nil {
+		if err == mgo.ErrNotFound {
+			return nil, authmodel.ErrNotFound
+		}
+
 		return nil, err
 	}
 

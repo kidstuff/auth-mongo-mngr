@@ -45,7 +45,7 @@ func (m *MgoManager) UpdateGroupDetail(id string, pri []string, info *authmodel.
 		change["Info"] = *info
 	}
 	if pri != nil {
-		change["Privilege"] = pri
+		change["Privileges"] = pri
 	}
 
 	return m.GroupColl.UpdateId(oid, bson.M{"$set": change})
@@ -60,6 +60,10 @@ func (m *MgoManager) FindGroup(id string) (*authmodel.Group, error) {
 	group := &authmodel.Group{}
 	err = m.GroupColl.FindId(oid).One(group)
 	if err != nil {
+		if err == mgo.ErrNotFound {
+			return nil, authmodel.ErrNotFound
+		}
+
 		return nil, err
 	}
 
@@ -70,6 +74,10 @@ func (m *MgoManager) FindGroupByName(name string) (*authmodel.Group, error) {
 	group := &authmodel.Group{}
 	err := m.GroupColl.Find(bson.M{"Name": name}).One(group)
 	if err != nil {
+		if err == mgo.ErrNotFound {
+			return nil, authmodel.ErrNotFound
+		}
+
 		return nil, err
 	}
 
