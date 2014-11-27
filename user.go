@@ -181,7 +181,11 @@ func (m *MgoManager) UpdateUserDetail(id string, pwd *string, app *bool, pri []s
 		changes["Profile"] = profile
 	}
 	if pwd != nil {
-		changes["Pwd"] = *pwd
+		var err error
+		changes["Pwd"], err = hashPwd(*pwd)
+		if err != nil {
+			return err
+		}
 	}
 
 	return m.UserColl.UpdateId(oid, bson.M{"$set": changes})
