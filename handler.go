@@ -11,8 +11,8 @@ func Initial(db *mgo.Database) {
 	auth.HANDLER_REGISTER = func(fn auth.HandleFunc, owner bool, pri []string) http.Handler {
 		return mongoMngrHandler{
 			db: db,
-			Fn: fn,
-			Condition: auth.Condition{
+			fn: fn,
+			cond: auth.Condition{
 				RequiredPri: pri,
 				Owner:       owner,
 			},
@@ -21,17 +21,17 @@ func Initial(db *mgo.Database) {
 }
 
 type mongoMngrHandler struct {
-	db *mgo.Database
-	Fn auth.HandleFunc
-	auth.Condition
-	auth.AuthContext
+	db   *mgo.Database
+	fn   auth.HandleFunc
+	cond auth.Condition
 }
 
 func (h mongoMngrHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	cloneDB := h.db.Session.Clone().DB(h.db.Name)
 	defer cloneDB.Session.Close()
 
-	h.AuthContext.Auth = NewMgoManager(cloneDB)
-	h.AuthContext.Settings = NewMgoConfigMngr(cloneDB)
-	auth.BasicMngrHandler(&h.AuthContext, rw, req, &h.Condition, h.Fn)
+	ctx := auth.AuthContext{}
+	ctx.Auth = NewMgoManager(cloneDB)
+	ctx.Settings = NewMgoConfigMngr(cloneDB)
+	auth.BasicMngrHandler(&ctx, rw, req, &h.cond, h.fn)
 }

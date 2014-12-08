@@ -67,3 +67,8 @@ func EnsureIndex(db *mgo.Database) error {
 
 	return nil
 }
+
+// Setup run EnsureIndex and stuff to prepare database
+func Setup(db *mgo.Database) error {
+	return EnsureIndex(db)
+}
