@@ -40,7 +40,13 @@ func TestMain(t *testing.T) {
 	gid := testManagerAddGroupDetail(t, mngr)
 
 	testManagerUpdateUserDetail(t, mngr, uid, gid)
-	testmanagerAddUserDetail(t, mngr, gid)
+
+	uid2 := testManagerAddUserDetail(t, mngr, gid)
+
+	testManagerDeleteUser(t, mngr, uid)
+	testManagerDeleteUser(t, mngr, uid2)
+
+	testManagerFindAllUser(t, mngr, gid)
 	// u2, err := mngr.AddUserDetail("user2@example.com", "zaq123edc", true,
 	// 	nil, nil, nil, []string{*g1.Id})
 	// if err != nil {
@@ -134,7 +140,7 @@ func testManagerUpdateUserDetail(t *testing.T, mngr authmodel.Manager, uid, gid 
 	}
 }
 
-func testmanagerAddUserDetail(t *testing.T, mngr authmodel.Manager, gid string) string {
+func testManagerAddUserDetail(t *testing.T, mngr authmodel.Manager, gid string) string {
 	code := map[string]string{"tested": "notyet"}
 	u, err := mngr.AddUserDetail("user2@example.com", "test123edc", true, []string{"testing"}, code, nil, []string{gid})
 	if err != nil {
@@ -171,6 +177,114 @@ func testmanagerAddUserDetail(t *testing.T, mngr authmodel.Manager, gid string) 
 	}
 
 	return *u.Id
+}
+
+func testManagerDeleteUser(t *testing.T, mngr authmodel.Manager, uid string) {
+	err := mngr.DeleteUser(uid)
+	if err != nil {
+		t.Fatal("delete user failed:", err)
+	}
+
+	_, err = mngr.FindUser(uid)
+	if err != authmodel.ErrNotFound {
+		t.Fatal("delete user not work")
+	}
+}
+
+func testManagerFindAllUser(t *testing.T, mngr authmodel.Manager, gid string) {
+	users := make([]*authmodel.User, 10)
+	var err error
+	users[0], err = mngr.AddUser("test01@example.com", "testing123edc", true)
+	if err != nil {
+		t.Fatal("cannot add user", err)
+	}
+
+	users[1], err = mngr.AddUser("test02@example.com", "testing123edc", true)
+	if err != nil {
+		t.Fatal("cannot add user", err)
+	}
+
+	users[2], err = mngr.AddUser("test03@example.com", "testing123edc", true)
+	if err != nil {
+		t.Fatal("cannot add user", err)
+	}
+
+	users[3], err = mngr.AddUser("test04@example.com", "testing123edc", true)
+	if err != nil {
+		t.Fatal("cannot add user", err)
+	}
+
+	users[4], err = mngr.AddUser("test05@example.com", "testing123edc", true)
+	if err != nil {
+		t.Fatal("cannot add user", err)
+	}
+
+	users[5], err = mngr.AddUser("test06@example.com", "testing123edc", true)
+	if err != nil {
+		t.Fatal("cannot add user", err)
+	}
+
+	users[6], err = mngr.AddUser("test07@example.com", "testing123edc", true)
+	if err != nil {
+		t.Fatal("cannot add user", err)
+	}
+
+	users[7], err = mngr.AddUser("test08@example.com", "testing123edc", true)
+	if err != nil {
+		t.Fatal("cannot add user", err)
+	}
+
+	users[8], err = mngr.AddUserDetail("test09@example.com", "testing123edc", true, nil, nil, nil, []string{gid})
+	if err != nil {
+		t.Fatal("cannot add user", err)
+	}
+
+	users[9], err = mngr.AddUserDetail("test10@example.com", "testing123edc", true, nil, nil, nil, []string{gid})
+	if err != nil {
+		t.Fatal("cannot add user", err)
+	}
+
+	// should return the full list of 10 users
+	userList, err := mngr.FindAllUser(-1, "", nil, nil)
+	if n := len(userList); n != 10 {
+		t.Fatal("get all user failed, expect 10 users, found", n)
+	}
+
+	userList, err = mngr.FindAllUser(-1, "", nil, []string{gid})
+	if n := len(userList); n != 2 {
+		t.Fatal("get all user with groups id failed, expect 2 users, found", n)
+	}
+
+	userList, err = mngr.FindAllUser(1, "", []string{"Id", "Approved"}, nil)
+	if n := len(userList); n != 1 {
+		t.Fatal("get all user failed, expect 1 users, found", n)
+	}
+
+	if userList[0].Id == nil || userList[0].Approved == nil {
+		t.Fatal("get all user failed retrieve specifiec fields")
+	}
+
+	if u := userList[0]; u.Email != nil || u.Pwd != nil || u.LastActivity != nil {
+		t.Fatal("get all user failed not retrieved unspecific fields")
+	}
+
+	userList1, err := mngr.FindAllUser(5, "", nil, nil)
+	if n := len(userList1); n != 5 {
+		t.Fatal("get all user failed, expect 5 but got", n)
+	}
+
+	userList2, err := mngr.FindAllUser(5, *userList1[4].Id, nil, nil)
+	if n := len(userList2); n != 5 {
+		t.Fatal("get all user with offset id failed, expect 5 but got", n)
+	}
+
+	for _, u1 := range userList1 {
+		for _, u2 := range userList2 {
+			if *u1.Id == *u2.Id {
+				t.Fatal("get all user failed with limit and offset")
+			}
+		}
+	}
 }
 
 func testManagerAddGroupDetail(t *testing.T, mngr authmodel.Manager) string {
