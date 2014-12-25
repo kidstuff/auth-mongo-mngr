@@ -362,7 +362,17 @@ func (m *MgoManager) Login(id string, stay time.Duration) (string, error) {
 	return state.Token, nil
 }
 
-func (m *MgoManager) Logout(token string) error {
+func (m *MgoManager) Logout(token string, all bool) error {
+	if all {
+		state := LoginState{}
+		err := m.LoginColl.FindId(token).One(&state)
+		if err != nil {
+			return authmodel.ErrInvalidToken
+		}
+
+		_, err = m.LoginColl.RemoveAll(bson.M{"UserId": state.UserId})
+		return err
+	}
 	return m.LoginColl.RemoveId(token)
 }
 
