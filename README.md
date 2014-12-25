@@ -15,7 +15,7 @@ This manager require developer to build some indexes by calling [mgoauth.Setup](
 db.mgoauth_user.ensureIndex( { Email: 1 }, { unique: true } )
 db.mgoauth_user.ensureIndex( { LastActivity: 1 } )
 db.mgoauth_user.ensureIndex( { Groups.Id: 1 } )
-db.mgoauth_login.ensureIndex( { UserId: 1 }, { dropDups: true } )
+db.mgoauth_login.ensureIndex( { UserId: 1 } )
 db.mgoauth_login.ensureIndex( { ExpiredOn: 1 }, { expireAfterSeconds: 60 } )
 db.mgoauth_group.ensureIndex( { Name: 1 }, { unique: true } )
 ````

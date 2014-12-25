@@ -48,8 +48,7 @@ func EnsureIndex(db *mgo.Database) error {
 	}
 
 	err = loginColl.EnsureIndex(mgo.Index{
-		Key:      []string{"UserId"},
-		DropDups: true,
+		Key: []string{"UserId"},
 	})
 	if err != nil {
 		return err
