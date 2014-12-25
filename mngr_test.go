@@ -5,6 +5,7 @@ import (
 	"github.com/kidstuff/auth/authmodel"
 	"labix.org/v2/mgo"
 	"testing"
+	"time"
 )
 
 func newManager(dbname string) authmodel.Manager {
@@ -42,36 +43,18 @@ func TestMain(t *testing.T) {
 	testManagerUpdateUserDetail(t, mngr, uid, gid)
 
 	uid2 := testManagerAddUserDetail(t, mngr, gid)
+	testManagerDeleteGroup(t, mngr, gid, uid2)
 
 	testManagerDeleteUser(t, mngr, uid)
 	testManagerDeleteUser(t, mngr, uid2)
 
+	gid = testManagerAddGroupDetail(t, mngr)
 	testManagerFindAllUser(t, mngr, gid)
-	// u2, err := mngr.AddUserDetail("user2@example.com", "zaq123edc", true,
-	// 	nil, nil, nil, []string{*g1.Id})
-	// if err != nil {
-	// 	t.Fatal("cannot add new user with group:", err)
-	// }
 
-	// if len(u2.Groups) != 1 {
-	// 	t.Fatal("missing group in user")
-	// }
-
-	// err = mngr.DeleteGroup(*g1.Id)
-	// if err != nil {
-	// 	t.Fatal("cannot delete group:", err)
-	// }
-
-	// u2b, err := mngr.FindUser(*u2.Id)
-	// if err != nil {
-	// 	t.Fatal("cannot find user:", err)
-	// }
-
-	// if len(u2b.Groups) != 0 {
-	// 	t.Fatal("deletion of group must update group infomation of users")
-	// }
+	testManagerLogin(t, mngr, testManagerAddUser(t, mngr))
 }
 
+// testManagerAddUser check if add user work
 func testManagerAddUser(t *testing.T, mngr authmodel.Manager) string {
 	ps := "zaq123456"
 	u1, err := mngr.AddUser("user1@example.com", ps, true)
@@ -96,6 +79,7 @@ func testManagerAddUser(t *testing.T, mngr authmodel.Manager) string {
 	return *u1.Id
 }
 
+// testManagerUpdateUserDetail test update user operation and check the password hash function.
 func testManagerUpdateUserDetail(t *testing.T, mngr authmodel.Manager, uid, gid string) {
 	ps := "testing12345"
 	app := false
@@ -140,6 +124,7 @@ func testManagerUpdateUserDetail(t *testing.T, mngr authmodel.Manager, uid, gid 
 	}
 }
 
+// testManagerAddUserDetail check if add user operation work
 func testManagerAddUserDetail(t *testing.T, mngr authmodel.Manager, gid string) string {
 	code := map[string]string{"tested": "notyet"}
 	u, err := mngr.AddUserDetail("user2@example.com", "test123edc", true, []string{"testing"}, code, nil, []string{gid})
@@ -179,6 +164,7 @@ func testManagerAddUserDetail(t *testing.T, mngr authmodel.Manager, gid string) 
 	return *u.Id
 }
 
+// testManagerDeleteUser check if delete user operation work.
 func testManagerDeleteUser(t *testing.T, mngr authmodel.Manager, uid string) {
 	err := mngr.DeleteUser(uid)
 	if err != nil {
@@ -191,6 +177,7 @@ func testManagerDeleteUser(t *testing.T, mngr authmodel.Manager, uid string) {
 	}
 }
 
+// testManagerFindAllUser add 10 users the do test about partial and projection select
 func testManagerFindAllUser(t *testing.T, mngr authmodel.Manager, gid string) {
 	users := make([]*authmodel.User, 10)
 	var err error
@@ -244,17 +231,20 @@ func testManagerFindAllUser(t *testing.T, mngr authmodel.Manager, gid string) {
 		t.Fatal("cannot add user", err)
 	}
 
+	// get all user at the same time
 	// should return the full list of 10 users
 	userList, err := mngr.FindAllUser(-1, "", nil, nil)
 	if n := len(userList); n != 10 {
 		t.Fatal("get all user failed, expect 10 users, found", n)
 	}
 
+	// get all user belong to gid
 	userList, err = mngr.FindAllUser(-1, "", nil, []string{gid})
 	if n := len(userList); n != 2 {
 		t.Fatal("get all user with groups id failed, expect 2 users, found", n)
 	}
 
+	// get a single user with specific feilds.
 	userList, err = mngr.FindAllUser(1, "", []string{"Id", "Approved"}, nil)
 	if n := len(userList); n != 1 {
 		t.Fatal("get all user failed, expect 1 users, found", n)
@@ -268,16 +258,19 @@ func testManagerFindAllUser(t *testing.T, mngr authmodel.Manager, gid string) {
 		t.Fatal("get all user failed not retrieved unspecific fields")
 	}
 
+	// get a part of user list
 	userList1, err := mngr.FindAllUser(5, "", nil, nil)
 	if n := len(userList1); n != 5 {
 		t.Fatal("get all user failed, expect 5 but got", n)
 	}
 
+	// get the other part
 	userList2, err := mngr.FindAllUser(5, *userList1[4].Id, nil, nil)
 	if n := len(userList2); n != 5 {
 		t.Fatal("get all user with offset id failed, expect 5 but got", n)
 	}
 
+	// and check if they are "paging" right
 	for _, u1 := range userList1 {
 		for _, u2 := range userList2 {
 			if *u1.Id == *u2.Id {
@@ -287,6 +280,7 @@ func testManagerFindAllUser(t *testing.T, mngr authmodel.Manager, gid string) {
 	}
 }
 
+// testManagerAddGroupDetail simply check if the create group operation work.
 func testManagerAddGroupDetail(t *testing.T, mngr authmodel.Manager) string {
 	info := authmodel.GroupInfo{}
 	desc := "testing privelege"
@@ -319,4 +313,97 @@ func testManagerAddGroupDetail(t *testing.T, mngr authmodel.Manager) string {
 	}
 
 	return *g1.Id
+}
+
+// testManagerDeleteGroup recieve a group id and a user id who belong to that group.
+// After group delettion, check if the group infomation of in user account removed or not.
+func testManagerDeleteGroup(t *testing.T, mngr authmodel.Manager, gid, uid string) {
+	err := mngr.DeleteGroup(gid)
+	if err != nil {
+		t.Fatal("delete group failed:", err)
+	}
+
+	u, err := mngr.FindUser(uid)
+	if err != nil {
+		t.Fatal("cannot find user:", err)
+	}
+
+	if len(u.Groups) > 0 {
+		t.Fatal("delete group must remove group info in user")
+	}
+}
+
+// testManagerLogin login the same user by uid 3 times to get 3 different tokens.
+// Then use them to test the Logout method.
+func testManagerLogin(t *testing.T, mngr authmodel.Manager, uid string) {
+	token, err := mngr.Login(uid, time.Minute)
+	if err != nil {
+		t.Fatal("cannot login:", err)
+	}
+
+	u, err := mngr.GetUser(token)
+	if err != nil {
+		t.Fatal("cannot get logged user:", err)
+	}
+
+	if *u.Id != uid {
+		t.Fatal("loged user and user returned not the same")
+	}
+
+	token2, err := mngr.Login(uid, time.Minute)
+	if err != nil {
+		t.Fatal("cannot login:", err)
+	}
+
+	u, err = mngr.GetUser(token2)
+	if err != nil {
+		t.Fatal("cannot get logged user:", err)
+	}
+
+	if *u.Id != uid {
+		t.Fatal("loged user and user returned not the same")
+	}
+
+	token3, err := mngr.Login(uid, time.Minute)
+	if err != nil {
+		t.Fatal("cannot login:", err)
+	}
+
+	u, err = mngr.GetUser(token3)
+	if err != nil {
+		t.Fatal("cannot get logged user:", err)
+	}
+
+	if *u.Id != uid {
+		t.Fatal("loged user and user returned not the same")
+	}
+
+	if token == token2 || token2 == token3 || token == token3 {
+		t.Fatal("token must not be the same")
+	}
+
+	err = mngr.Logout(token, false)
+	if err != nil {
+		t.Fatal("cannot logout user:", err)
+	}
+
+	u, err = mngr.GetUser(token)
+	if err == nil || u != nil {
+		t.Fatal("logout don't work")
+	}
+
+	err = mngr.Logout(token2, true)
+	if err != nil {
+		t.Fatal("cannot logout user:", err)
+	}
+
+	u, err = mngr.GetUser(token2)
+	if err == nil || u != nil {
+		t.Fatal("logout didn't work")
+	}
+
+	u, err = mngr.GetUser(token3)
+	if err == nil || u != nil {
+		t.Fatal("logout all user's session didn't work")
+	}
 }
